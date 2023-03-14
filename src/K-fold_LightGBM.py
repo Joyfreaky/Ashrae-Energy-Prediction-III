@@ -1,24 +1,24 @@
 # %% [code]
-from sklearn.model_selection import StratifiedKFold
-import warnings
-from pathlib import Path
-import random
-import sys
-import gc
-import os
-from pandas.api.types import is_datetime64_any_dtype as is_datetime
-from pandas.api.types import is_categorical_dtype
-from tqdm import tqdm_notebook as tqdm
-import numpy as np  # linear algebra
-import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
-import matplotlib.pyplot as plt
-import seaborn as sns
-from IPython.core.display import display, HTML
-import holidays
-import lightgbm as lgb
-from scipy.signal import savgol_filter as sg
-from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import LabelEncoder
+from scipy.signal import savgol_filter as sg
+import lightgbm as lgb
+import holidays
+from IPython.core.display import display, HTML
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
+import numpy as np  # linear algebra
+from tqdm import tqdm_notebook as tqdm
+from pandas.api.types import is_categorical_dtype
+from pandas.api.types import is_datetime64_any_dtype as is_datetime
+import os
+import gc
+import sys
+import random
+from pathlib import Path
+import warnings
+from sklearn.model_selection import StratifiedKFold
 print("Importing libraries...")
 
 
@@ -185,7 +185,7 @@ def add_sg(df):
 print("Importing data...")
 
 # Change the path to the source file path, use Memory_Management.py to generate files in feather format
-root = Path('/workspace/Ashrae-Energy-Prediction-III/data')
+root = Path('/workspace/Ashrae-Energy-Prediction-III/src/data')
 train_df = pd.read_feather(root/'train.feather')
 weather_train_df = pd.read_feather(root/'weather_train.feather')
 building_meta_df = pd.read_feather(root/'building_metadata.feather')
@@ -218,6 +218,7 @@ print('Shape of Weather Train Data:', weather_train_df.shape)
 
 # %% [Markdown]
 # ## Data Cleaning
+print("Cleaning data...")
 
 # %% [code]
 train_df[train_df.building_id == 954].meter_reading.plot()
@@ -240,6 +241,7 @@ train_df[train_df.building_id == 1221].meter_reading.plot()
 
 # %% [code]
 # Removing buildings with meter == 0 which has zero reading, before first initial reading.
+print("Removing buildings with meter == 0 which has zero reading, before first usage.")
 train_df = train_df.query(
     'not (building_id <= 104 & meter == 0 & timestamp <= "2016-05-20 18")')
 train_df = train_df.query(
@@ -361,6 +363,7 @@ train_df = train_df.query(
 
 # %% [Markdown]
 # ## Remove outliers
+print("Removing Outliers...")
 
 # %% [code] {"scrolled":true}
 train_df = train_df.query(
@@ -442,10 +445,10 @@ train_df = train_df.query(
 train_df = train_df.query(
     'not (building_id >= 774 & building_id <= 787 & meter == 1 & timestamp > "2016-10-05 01" & timestamp < "2016-10-10 09")')
 
-# %% [Markdown]
-# ## 2.2. Remove outliers
+
 # %% [code] {"scrolled":true}
 # 3rd cleaning hourly spikes
+print('Cleaning hourly spikes...')
 train_df = train_df.query(
     'not (building_id >= 874 & building_id <= 997 & meter == 0 & timestamp > "2016-05-11 09" & timestamp < "2016-05-12 01")')
 train_df = train_df.query(
@@ -479,6 +482,7 @@ train_df = train_df.query(
 
 # %% [Markdown]
 # ## 2.3. Remove missing values
+print("Remove missing values...")
 train_df = train_df.query(
     'not (building_id >= 1223 & building_id <= 1324 & meter==1 & timestamp > "2016-07-16 04" & timestamp < "2016-07-19 11")')
 train_df = train_df.query(
@@ -645,23 +649,24 @@ site_0_bids = building_meta_df[building_meta_df.site_id ==
 print(len(site_0_bids), len(
     train_df[train_df.building_id.isin(site_0_bids)].building_id.unique()))
 print("Before correction:")
-train_df[train_df.building_id.isin(
-    site_0_bids) & (train_df.meter == 0)].head(10)
+print(train_df[(train_df.building_id.isin(site_0_bids))
+               & (train_df.meter == 0)].head(10))
 
 train_df.loc[(train_df.building_id.isin(site_0_bids)) & (train_df.meter == 0), 'meter_reading'] = train_df[(
     train_df.building_id.isin(site_0_bids)) & (train_df.meter == 0)]['meter_reading'] * 0.2931
 # %% [code]
 print("After correction:")
-train_df[(train_df.building_id.isin(site_0_bids))
-         & (train_df.meter == 0)].head(10)
+
+print(train_df[(train_df.building_id.isin(site_0_bids))
+               & (train_df.meter == 0)].head(10))
 
 # %% [code]
 # Add timestamp features and log transform of meter_reading
+print("Addition of timestamp features...")
 
-print("Add timestamp features...")
 train_df['date'] = train_df['timestamp'].dt.date
 
-print("Log transform of meter_reading...")
+print("transforming meter_reading...")
 train_df['meter_reading_log1p'] = np.log1p(train_df['meter_reading'])
 
 # %% [Markdown]
@@ -696,7 +701,7 @@ Features that are likely predictive:"""
 
 # %% [code]
 # Preprocessing time features
-print("Add time features...")
+print("Preprocessing time features...")
 preprocess(train_df)
 
 # %% [code]
@@ -715,15 +720,16 @@ weather_train_df.describe()
 
 # %% [code]
 print("Before interpolation:")
-weather_train_df.isna().sum()
+print(weather_train_df.isna().sum())
 
 # %% [code]
 print("Shape before interpolation:")
-weather_train_df.shape
+print(weather_train_df.shape)
 
 # %% [code]
 print("Group by site_id Missing values before interpolation:")
-weather_train_df.groupby('site_id').apply(lambda group: group.isna().sum())
+print(weather_train_df.groupby('site_id').apply(
+    lambda group: group.isna().sum()))
 
 # %% [code]
 print("Interpolate missing values...")
@@ -732,16 +738,17 @@ weather_train_df = weather_train_df.groupby('site_id').apply(
 
 # %% [code]
 print("After interpolation:")
-weather_train_df.groupby('site_id').apply(lambda group: group.isna().sum())
+print(weather_train_df.groupby('site_id').apply(
+    lambda group: group.isna().sum()))
 
 # %% [code]
 # Checking how many data points in each site_id
 print("Checking how many data points in each site_id...")
-weather_train_df.groupby('site_id').apply(lambda group: group.shape)
+print(weather_train_df.groupby('site_id').apply(lambda group: group.shape))
 
 # %% [code]
-print(
-    "Add lag features for weather data...")
+print("Adding lag features for weather data...")
+
 add_lag_feature(weather_train_df, window=3)
 add_lag_feature(weather_train_df, window=72)
 
@@ -761,7 +768,7 @@ bid_map = train_df.building_id.value_counts()
 train_df['bid_cnt'] = train_df.building_id.map(bid_map)
 # %% [code]
 # categorize primary_use column to reduce memory on merge...
-print("Categorize primary_use column to reduce memory on merge...")
+print("Categorizing primary_use column to reduce memory on merge...")
 
 primary_use_list = building_meta_df['primary_use'].unique()
 primary_use_dict = {key: value for value, key in enumerate(primary_use_list)}
@@ -773,31 +780,42 @@ gc.collect()
 
 # %% [code]
 # Reduce memory usage
-print("Reduce memory usage...")
+print("Reducing memory usage...")
 train_df = reduce_mem_usage(train_df, use_float16=True)
 building_meta_df = reduce_mem_usage(building_meta_df, use_float16=True)
 weather_train_df = reduce_mem_usage(weather_train_df, use_float16=True)
 
 # %% [code]
-print("Smoothing...")
+print("Smoothing weather data...")
+
 add_sg(weather_train_df)
 
 # %% [Markdown]
 # # Plotting smoothed data
 
 # %% [code]
+print("Air temperature vs smoothed air temperature for site_id 1")
 weather_train_df[weather_train_df.site_id == 1].air_temperature[:100].plot()
 weather_train_df[weather_train_df.site_id == 1].air_smooth[:100].plot()
+# Show the plots in the console
+plt.show()
+
 
 # %% [code]
+print("Dew temperature vs smoothed dew temperature for site_id 2")
 weather_train_df[weather_train_df.site_id == 2].dew_temperature[:100].plot()
 weather_train_df[weather_train_df.site_id == 2].dew_smooth[:100].plot()
+plt.show()
+
 # %% [code]
+print("Difference between air temperature and smoothed air temperature for site_id 0")
 weather_train_df[weather_train_df.site_id == 0].dew_diff[:100].plot()
 weather_train_df[weather_train_df.site_id == 0].air_diff[:100].plot()
+plt.show()
 
 # %% [code]
 # Feature Selection
+print("Feature Selection...")
 
 category_cols = ['building_id', 'site_id', 'primary_use',
                  'IsHoliday', 'groupNum_train']  # , 'meter'
@@ -840,7 +858,7 @@ train_df.columns
 building_meta_df.columns
 # %% [code]
 
-print("Merge dataframes...")
+print("Merging dataframes...")
 
 train_df = train_df.merge(building_meta_df, on=[
                           'building_id', 'meter'], how='left')
@@ -852,30 +870,37 @@ train_df = train_df.merge(weather_train_df, on=[
                           'site_id', 'timestamp'], how='left')
 
 # %% [code]
-print("Log transform features...")
+print("Transforming Square Feet to log1p...")
 train_df['square_feet_np_log1p'] = np.log1p(train_df['square_feet'])
 
 # %% [code]
+print("Reducing memory usage...")
 train_df = reduce_mem_usage(train_df, use_float16=True)
 gc.collect()  # Copy till here for data preprocessing.
 
 # %% [code]
 # Delete unnecessary dataframes to free up memory
 # del building_meta_df
-del weather_train_df
-gc.collect()
+# del weather_train_df
+# gc.collect()
 
 # %% [code]
 # Save preprocessed data
 print("Saving preprocessed train data...")
-train_df.to_pickle('data/train_df.pkl')
+train_df.to_pickle(
+    '/workspace/Ashrae-Energy-Prediction-III/src/data/train_df.pkl')
+weather_train_df.to_pickle(
+    '/workspace/Ashrae-Energy-Prediction-III/src/data/weather_train_df.pkl')
 
 
 # %% [code]
 # Model Implementation and Training
+print("Model Implementation and Training...")
 
 # %% [code]
 # Create X_train and y_train
+
+
 def create_X_y(train_df, groupNum_train):
 
     target_train_df = train_df[train_df['groupNum_train']
@@ -958,6 +983,8 @@ kf = StratifiedKFold(n_splits=folds)
 
 # %% [code]
 
+# plot feature importance
+
 
 def plot_feature_importance(model, feature_cols):
     """Plot feature importance"""
@@ -1023,6 +1050,9 @@ if Train:
 
         print('-------------------------------------------------------------')
 
+else:
+    print('Skip Training')
+
 # %% [code]
 
 # Preprocessing on test data
@@ -1041,7 +1071,7 @@ weather_test_df = weather_test_df.drop_duplicates(['timestamp', 'site_id'])
 set_local(weather_test_df)
 add_holiyday(weather_test_df)
 
-print('preprocessing building...')
+print('preprocessing timestamp...')
 test_df['date'] = test_df['timestamp'].dt.date
 preprocess(test_df)
 
@@ -1072,14 +1102,17 @@ gc.collect()
 # %% [code]
 # Save preprocessing test data in pickle format
 print("Saving test data...")
-test_df.to_pickle('data/test_df.pkl')
-weather_test_df.to_pickle('data/weather_test_df.pkl')
+test_df.to_pickle(
+    '/workspace/Ashrae-Energy-Prediction-III/src/data/test_df.pkl')
+weather_test_df.to_pickle('/workspace/Ashrae-Energy-Prediction-III/src/data/weather_test_df.pkl')
+building_meta_df.to_pickle('/workspace/Ashrae-Energy-Prediction-III/src/data/building_meta_df.pkl')
 gc.collect()
 
 
 # %% [code]
 
 if not debug:
+    print('Reading Sample Submission...')
     sample_submission = pd.read_feather(
         os.path.join(root, 'sample_submission.feather'))
     reduce_mem_usage(sample_submission)
@@ -1088,6 +1121,8 @@ if not debug:
 
 # %% [code]
 # Create X_test and y_test
+
+print("Creating X_test and y_test...")
 
 
 def create_X(test_df, groupNum_train):
@@ -1120,6 +1155,8 @@ def pred_all(X_test, models, batch_size=1000000):
 
     y_test_pred_total /= len(models)
     return y_test_pred_total
+
+# define model prediction for train data
 
 
 def pred(X_test, models, batch_size=1000000):
@@ -1160,6 +1197,8 @@ if Train:
 
         del X_test, y_test
         gc.collect()
+else:
+    print('Skip prediction')
 
 if not debug:
     # %% [markdown]
@@ -1178,6 +1217,8 @@ if not debug:
 
     # %% [code]
     print('Shape of Sample Submission', sample_submission.shape)
+else:
+    print('Debug Mode')
 
 # %% [code]
 if not debug:
@@ -1189,4 +1230,7 @@ if not debug:
 if not debug:
     np.log1p(sample_submission['meter_reading']).hist(bins=100)
 
-print("Script completed...")
+# Run the script to generate submission file.
+# python3 K-fold_LightGBM.py
+
+print("Script Executed Sucessfully...")

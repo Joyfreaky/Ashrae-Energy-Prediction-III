@@ -71,7 +71,7 @@ def import_data(file):
 # Change the Location of the raw of the dataset before run.
 
 print('Reading data...')
-root = '/workspace/Ashrae-Energy-Prediction-III/data'
+root = '/workspace/Ashrae-Energy-Prediction-III/src/data'
 
 train_df = pd.read_csv(os.path.join(root, 'train.csv'))
 weather_train_df = pd.read_csv(os.path.join(root, 'weather_train.csv'))
@@ -98,12 +98,12 @@ reduce_mem_usage(weather_test_df)
 # Save the data in feather format for faster loading in the data folder.
 
 print('Saving data...')
-train_df.to_feather('data/train.feather')
-test_df.to_feather('data/test.feather')
-weather_train_df.to_feather('data/weather_train.feather')
-weather_test_df.to_feather('data/weather_test.feather')
-building_meta_df.to_feather('data/building_metadata.feather')
-sample_submission.to_feather('data/sample_submission.feather')
+train_df.to_feather('/workspace/Ashrae-Energy-Prediction-III/src/data/train.feather')
+test_df.to_feather('/workspace/Ashrae-Energy-Prediction-III/src/data/test.feather')
+weather_train_df.to_feather('/workspace/Ashrae-Energy-Prediction-III/src/data/weather_train.feather')
+weather_test_df.to_feather('/workspace/Ashrae-Energy-Prediction-III/src/data/weather_test.feather')
+building_meta_df.to_feather('/workspace/Ashrae-Energy-Prediction-III/src/data/building_metadata.feather')
+sample_submission.to_feather('/workspace/Ashrae-Energy-Prediction-III/src/data/sample_submission.feather')
 # %% [code]
 
 gc.collect()  # Garbage Collection
