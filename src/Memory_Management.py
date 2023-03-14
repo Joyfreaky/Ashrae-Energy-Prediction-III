@@ -69,9 +69,10 @@ def import_data(file):
 
 # Read data...
 # Change the Location of the raw of the dataset before run.
-root = '/home/joydipb/Ashrae-Energy-Prediction-III/data'
 
 print('Reading data...')
+root = '/workspace/Ashrae-Energy-Prediction-III/data'
+
 train_df = pd.read_csv(os.path.join(root, 'train.csv'))
 weather_train_df = pd.read_csv(os.path.join(root, 'weather_train.csv'))
 test_df = pd.read_csv(os.path.join(root, 'test.csv'))
@@ -80,12 +81,14 @@ building_meta_df = pd.read_csv(os.path.join(root, 'building_metadata.csv'))
 sample_submission = pd.read_csv(os.path.join(root, 'sample_submission.csv'))
 
 print('Converting to datetime...')
+
 train_df['timestamp'] = pd.to_datetime(train_df['timestamp'])
 test_df['timestamp'] = pd.to_datetime(test_df['timestamp'])
 weather_train_df['timestamp'] = pd.to_datetime(weather_train_df['timestamp'])
 weather_test_df['timestamp'] = pd.to_datetime(weather_test_df['timestamp'])
 
 print("Reducing memory usage...")
+
 reduce_mem_usage(train_df)
 reduce_mem_usage(test_df)
 reduce_mem_usage(building_meta_df)
@@ -95,12 +98,12 @@ reduce_mem_usage(weather_test_df)
 # Save the data in feather format for faster loading in the data folder.
 
 print('Saving data...')
-train_df.to_feather('/home/joydipb/Ashrae-Energy-Prediction-III/data/train.feather')
-test_df.to_feather('/home/joydipb/Ashrae-Energy-Prediction-III/data/test.feather')
-weather_train_df.to_feather('/home/joydipb/Ashrae-Energy-Prediction-III/data/weather_train.feather')
-weather_test_df.to_feather('/home/joydipb/Ashrae-Energy-Prediction-III/data/weather_test.feather')
-building_meta_df.to_feather('/home/joydipb/Ashrae-Energy-Prediction-III/data/building_metadata.feather')
-sample_submission.to_feather('/home/joydipb/Ashrae-Energy-Prediction-III/data/sample_submission.feather')
+train_df.to_feather('data/train.feather')
+test_df.to_feather('data/test.feather')
+weather_train_df.to_feather('data/weather_train.feather')
+weather_test_df.to_feather('data/weather_test.feather')
+building_meta_df.to_feather('data/building_metadata.feather')
+sample_submission.to_feather('data/sample_submission.feather')
 # %% [code]
 
 gc.collect()  # Garbage Collection
