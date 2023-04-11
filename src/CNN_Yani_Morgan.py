@@ -1,20 +1,23 @@
 # %% Import the libraries to train a CNN model
-import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
-import keras as k
-from tensorflow.keras.models import Sequential # type: ignore
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization # type: ignore
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping # type: ignore
-from tensorflow.keras.optimizers import Adam # type: ignore
-from tensorflow.keras.models import load_model # type: ignore
-from tensorflow.keras.utils import plot_model # type: ignore
+from tensorflow import keras
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import regularizers,layers
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import plot_model
+from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.preprocessing import StandardScaler
 
 import gc
 import warnings
@@ -23,33 +26,41 @@ warnings.filterwarnings('ignore')
 # %% Import the dataset
 train_df = pd.read_pickle(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/train_df.pkl')
+# test_df = pd.read_pickle('/workspace/Ashrae-Energy-Prediction-III/src/data/test_df.pkl')
 
 # %% Print the shape of the dataset
 print('Shape of the training dataset: ', train_df.shape)
+# print('Shape of the testing dataset: ', test_df.shape)
 
+# %% Import the weather dataset and building metadata
+# weather_test = pd.read_pickle('/workspace/Ashrae-Energy-Prediction-III/src/data/weather_test_df.pkl')
+# building_metadata = pd.read_pickle('/workspace/Ashrae-Energy-Prediction-III/src/data/building_meta_df.pkl')
 
-# %% Print the first 5 rows of the dataset
-train_df.head()
+# %% Print the shape of the dataset
+# print('Shape of the weather dataset: ', weather_test.shape)
+# print('Shape of the building metadata: ', building_metadata.shape)
+
+# %% Print the columns of the dataset
+# print('Columns of the training dataset: ', train_df.columns)
+# print('Columns of the testing dataset: ', test_df.columns)
+# print('Columns of the weather dataset: ', weather_test.columns)
+# print('Columns of the building metadata: ', building_metadata.columns)
 
 # %% Drop Meter_reading column from the train dataset
 train_df = train_df.drop(['meter_reading'], axis=1)
 
-
 # %% Split the dataset into the Training set and validation set and make sure that the validation set is from the same groupNum_train
 X_train, X_val = train_test_split(
-    train_df, test_size=0.2, random_state=42, shuffle=True, stratify=train_df['groupNum_train'])
-y_train = X_train['meter_reading_log1p'] # type: ignore
-y_val = X_val['meter_reading_log1p'] # type: ignore 
-X_train = X_train.drop(['meter_reading_log1p'], axis=1) # type: ignore
-X_val = X_val.drop(['meter_reading_log1p'], axis=1) # type: ignore
-
-# %% Print the unique values of the groupNum_train in X_train and X_val and sort them
-print('Unique values of the groupNum_train in X_train: ', np.sort(
-    X_train['groupNum_train'].unique()))
-print('Unique values of the groupNum_train in X_val: ', np.sort(
-    X_val['groupNum_train'].unique()))
-
-
+    train_df, test_size=0.2, random_state=42, shuffle=True, stratify=train_df['groupNum_train']) # each every unit groupNum produces x_train, x_val
+y_train = X_train['meter_reading_log1p']
+y_val = X_val['meter_reading_log1p']
+X_train = X_train.drop(['meter_reading_log1p'], axis=1)
+X_val = X_val.drop(['meter_reading_log1p'], axis=1)
+#%% print the unique value of the GroupNum train in X_train, X_val
+print('unique value of the GroupNum_train in X_train',
+     X_train['groupNum_train'].unique())               
+print('unique value of the GroupNum_train in X_val',
+     X_val['groupNum_train'].unique())         # all these unique value is also in X_train but is also in X_val which means the data is same as the training data 
 # %% Print the shape of the dataset
 print('Shape of the training dataset: ', X_train.shape)
 print('Shape of the validation dataset: ', X_val.shape)
@@ -58,41 +69,40 @@ print('Shape of the validation labels: ', y_val.shape)
 
 del train_df
 gc.collect()
+#%% print a correlation matrix 
+import seaborn as sns
 
-# %% Print a correlation matrix for a random subset of the features
-
-X_train_subset = X_train.sample(frac=0.1, random_state=42)
-corr = X_train_subset.corr()
-plt.figure(figsize=(20, 20))
-sns.heatmap(corr, annot=False, fmt='.2f', cmap='coolwarm')
-plt.show()
-
-del X_train_subset
-gc.collect()
-
-
-# %% Selecting the features best found by the LightGBM model
+X_train_subset=X_train.sample(frac=0.1,random_state=42)
+corr=X_train_subset.corr()
+plt.figure(figsize=(20,20))
+sns.heatmap(corr,annot=False, fmt='2f',cmap='coolwarm') # annot = number 
+# for exmaple, the column of month is highly corrlated with index btw i dont need both of the column
+# function to check if the correlation between two features is greater than a threshold and drop one of them 
+#def check_corr(df,threshold):
+#    corr_matrix-df.corr().abs()
+# threshold anyting which is below 0.4 or 0.8
+# %% Selecting the features best found by the LightGBM model (there are around 50 percent of features in here )
 print("Feature Selection...")
-
+#1. we need to do feature selection based on our cnn model
+#2.    
 category_cols = ['building_id', 'site_id', 'primary_use',
-                 'IsHoliday']  # , 'groupNum_train']  # , 'meter'
+                 'IsHoliday', 'groupNum_train']  # , 'meter'
 feature_cols = ['square_feet_np_log1p', 'year_built'] + [
     'hour', 'weekend',
-    #    'day', # 'month' ,
-    #    'dayofweek',
-    #    'building_median'
-    #    'square_feet'
+    'day',  'month',
+    'dayofweek',
+    'square_feet'
 ] + [
     'air_temperature', 'cloud_coverage',
     'dew_temperature', 'precip_depth_1_hr',
     'sea_level_pressure',
-    # 'wind_direction', 'wind_speed',
+    'wind_direction', 'wind_speed',
     'air_temperature_mean_lag72',
     'air_temperature_max_lag72', 'air_temperature_min_lag72',
     'air_temperature_std_lag72', 'cloud_coverage_mean_lag72',
     'dew_temperature_mean_lag72', 'precip_depth_1_hr_mean_lag72',
     'sea_level_pressure_mean_lag72',
-    # 'wind_direction_mean_lag72',
+    'wind_direction_mean_lag72',
     'wind_speed_mean_lag72',
     'air_temperature_mean_lag3',
     'air_temperature_max_lag3',
@@ -100,77 +110,26 @@ feature_cols = ['square_feet_np_log1p', 'year_built'] + [
     'dew_temperature_mean_lag3',
     'precip_depth_1_hr_mean_lag3',
     'sea_level_pressure_mean_lag3',
-    #    'wind_direction_mean_lag3', 'wind_speed_mean_lag3',
-    #    'floor_area',
+    'wind_direction_mean_lag3', 'wind_speed_mean_lag3',
+    'floor_area',
     'year_cnt', 'bid_cnt',
     'dew_smooth', 'air_smooth',
     'dew_diff', 'air_diff',
     'dew_diff2', 'air_diff2'
 ]
 
-# %% Check the correlation between the features using fraction of the dataset which has the features selected by the LightGBM model
-X_train_subset = X_train[feature_cols + category_cols].sample(
-    frac=0.1, random_state=42)
-corr = X_train_subset.corr()
-plt.figure(figsize=(20, 20))
-sns.heatmap(corr, annot=False, fmt='.2f', cmap='coolwarm')
-plt.show()
-
-del X_train_subset
-gc.collect()
-
-# %% Normalize the features
-print("Normalizing the features...")
-scaler = StandardScaler()
-X_train[feature_cols] = scaler.fit_transform(X_train[feature_cols])
-X_val[feature_cols] = scaler.transform(X_val[feature_cols])
-
-# %% Encode the categorical features using label encoding
-print("label encoding the categorical features...")
-for col in category_cols:
-    le = LabelEncoder()
-    X_train[col] = le.fit_transform(X_train[col])
-    X_val[col] = le.transform(X_val[col])
-
-# %% Print the dtype of the categorical features after label encoding
-print('Dtype of the categorical features after label encoding: ', X_train[category_cols].dtypes)
-
-# # %% One-hot encode the categorical features
-# print("One-hot encoding the categorical features...")
-# X_train = pd.get_dummies(X_train, columns=category_cols)
-# X_val = pd.get_dummies(X_val, columns=category_cols)
-
-# %% Scale the categorical features
-print("Scaling the categorical features...")
-scaler = StandardScaler()
-X_train[category_cols] = scaler.fit_transform(X_train[category_cols])
-X_val[category_cols] = scaler.transform(X_val[category_cols])
-
-
-
-# %% Print the shape of the dataset
-print('Shape of the training dataset: ', X_train[feature_cols + category_cols].shape)
-print('Shape of the validation dataset: ', X_val[feature_cols + category_cols].shape)
-print('Shape of the training labels: ', y_train.shape)
-print('Shape of the validation labels: ', y_val.shape)
-
-
-
-
-# %% define the model with batch normalization and dropout layers
-
-
+# %% define the model
 def create_model(input_shape):
     # Build 1D CNN autoencoder
     model = Sequential()
-    model.add(Conv1D(16, kernel_size=1,
+    model.add(Conv1D(16, kernel_size=3,
               activation='sigmoid', input_shape=input_shape))
     model.add(MaxPooling1D(pool_size=2))
-    model.add(Conv1D(32, kernel_size=1, activation='sigmoid'))
+    model.add(Conv1D(32, kernel_size=3, activation='sigmoid'))
     model.add(MaxPooling1D(pool_size=2))
-    model.add(Conv1D(64, kernel_size=1, activation='sigmoid'))
+    model.add(Conv1D(64, kernel_size=3, activation='sigmoid'))
     model.add(MaxPooling1D(pool_size=2))
-    model.add(Conv1D(128, kernel_size=1, activation='sigmoid'))
+    model.add(Conv1D(128, kernel_size=3, activation='sigmoid'))
     model.add(MaxPooling1D(pool_size=2))
     model.add(Flatten())
     model.add(Dense(64, activation='sigmoid'))
@@ -180,65 +139,62 @@ def create_model(input_shape):
     model.add(Dense(1, activation='linear'))
     return model 
     # Add gradient clipping
-    
 
 
 # %% Run a loop to train the model based on the groupNum_train
 for groupNum in X_train['groupNum_train'].unique():
     print('Group Number: ', groupNum)
-    # Trim the dataset based on the selected features and groupNum_train
-    X_train_group = X_train[X_train['groupNum_train']
-                            == groupNum][feature_cols + category_cols]
-    X_val_group = X_val[X_val['groupNum_train']
-                        == groupNum][feature_cols + category_cols]
-
-    # Get the labels
-    y_train_group = y_train[X_train['groupNum_train'] == groupNum]
-    y_val_group = y_val[X_val['groupNum_train'] == groupNum]
-
-    
-    # Convert the dataset to numpy array
-    X_train_group = X_train_group.values
-    X_val_group = X_val_group.values
-
-    # Reshape the dataset to batch_size, timesteps, features
-    X_train_group = X_train_group.reshape(
-        X_train_group.shape[0], X_train_group.shape[1], 1)
-    X_val_group = X_val_group.reshape(
-        X_val_group.shape[0], X_val_group.shape[1], 1)
-
-    # Reshape the labels to batch_size, timesteps, features
-    y_train_group = y_train_group.values.reshape(
-        y_train_group.shape[0], 1, 1)
-    y_val_group = y_val_group.values.reshape(
-        y_val_group.shape[0], 1, 1)
-
-    # Get the input shape
-    input_shape = (X_train_group.shape[1], X_train_group.shape[2])
-
-    #  Create the model
+    # Feature selection pipeline
+    X_train = X_train[category_cols + feature_cols]
+    X_val = X_val[category_cols + feature_cols]
+    gc.collect()
+    # Set the input shape for the model
+    input_shape = (X_train[X_train['groupNum_train'] == groupNum].drop(
+            'groupNum_train', axis=1).shape[1], 1) # do not change this 
+    #Create the model
     model = create_model(input_shape)
-    # Apply Gradient clipping
-    optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
-    #gvs = optimizer.get_gradients(model.total_loss, model.trainable_weights)
-    #capped_gvs = [tf.clip_by_value(grad, -1., 1.) for grad in gvs]
-    #optimizer.apply_gradients(zip(capped_gvs, model.trainable_weights))
-    model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['mse'])
+    model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.001), 
+    loss='mse',
+    metrics='mae')
     model.summary()
+    #tf.keras.optimizers.SGD(learning_rate=0.001)
+    #tf.keras.optimizers.Adam(clipnorm=1.0)
+    #Reshape the X_train and X_val dataset to fit the CNN model input shape (n, 1)
+    X_train_group = X_train[X_train['groupNum_train']
+                                == groupNum].drop('groupNum_train', axis=1).copy()
+    X_val_group = X_val[X_val['groupNum_train'] ==
+                            groupNum].drop('groupNum_train', axis=1).copy()
+    X_train_group = X_train_group.values.reshape(
+            X_train_group.shape[0], X_train_group.shape[1], 1)
+    X_val_group = X_val_group.values.reshape(
+            X_val_group.shape[0], X_val_group.shape[1], 1)
 
+    #Reshape the y_train and y_val dataset to fit the CNN model output shape (1)
+    y_train_group = y_train[X_train['groupNum_train']
+                                == groupNum].values.reshape(-1, 1)
+    y_val_group = y_val[X_val['groupNum_train']
+                            == groupNum].values.reshape(-1, 1)
 
-
-    # Early stopping and model checkpoint
-    early_stopping = EarlyStopping(
-        monitor='val_loss', patience=3, mode='min')
+    #Early stopping and model checkpoint
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, mode='min') # if the accuracy does not increase after iterations, it gonna early stop
     model_checkpoint = ModelCheckpoint(
-        'model.h5', monitor='val_loss', save_best_only=True, mode='min')
+            'model.h5', monitor='val_loss', save_best_only=True, mode='min')
 
     #  Train the model
-    history = model.fit(X_train_group, y_train_group, epochs=100, batch_size=32, validation_data=(
-        X_val_group, y_val_group), callbacks=[early_stopping, model_checkpoint])
-    
-    #  Plot the training and validation loss
+    #history = model.fit(X_train_group, y_train_group, epochs=100, batch_size=128,
+    #                        validation_data=(X_val_group, y_val_group),
+    #                        callbacks=[early_stopping, model_checkpoint])
+    history =  model.fit(X_train_group, y_train_group, epochs=10, batch_size=32, validation_data=(X_val_group, y_val_group),
+                        callbacks=[early_stopping, model_checkpoint])
+
+    # threshold = 1.0
+
+    # optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
+    # grads_and_vars = optimizer.compute_gradients(loss, var_list=variable)
+    # capped_gvs = [(tf.clip_by_value(grad, -threshold, threshold), var)
+    #             for grad, var in grads_and_vars]
+    # training_op = optimizer.apply_gradients(capped_gvs)
+    # #  Plot the training and validation loss
     plt.plot(history.history['loss'], label='loss')
     plt.plot(history.history['val_loss'], label='val_loss')
     plt.xlabel('Epoch')
@@ -247,16 +203,14 @@ for groupNum in X_train['groupNum_train'].unique():
     plt.grid(True)
     plt.show()
 
-
     #  Plot the training and validation accuracy
-    plt.plot(history.history['mse'], label='mse')
-    plt.plot(history.history['val_mse'], label='val_mse')
+    plt.plot(history.history['mae'], label='mae')
+    plt.plot(history.history['val_mae'], label='val_mae')
     plt.xlabel('Epoch')
     plt.ylabel('Error [meter_reading_log1p]')
     plt.legend()
     plt.grid(True)
     plt.show()
-
 
     #  Predict the meter_reading_log1p
     y_pred = model.predict(X_val_group)
@@ -270,7 +224,7 @@ for groupNum in X_train['groupNum_train'].unique():
     # Save the model based on the groupNum_train in the model folder
     model.save('model/model_' + str(groupNum) + '.h5')
 
-    """ #  Delete the model
+    #  Delete the model
     del model
     gc.collect()
 
@@ -280,10 +234,10 @@ for groupNum in X_train['groupNum_train'].unique():
 
     #  Delete the y_train_group and y_val_group dataset
     del y_train_group, y_val_group
-    gc.collect() """
+    gc.collect()
 
 
- # %% Load the test dataset
+# %% Load the test dataset
 test_df = pd.read_pickle(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/train_df.pkl')
 building_meta_df = pd.read_pickle(
@@ -295,8 +249,6 @@ weather_test_df = pd.read_pickle(
 print('Shape of the test dataset: ', test_df.shape)
 print('Shape of the building_meta_df dataset: ', building_meta_df.shape)
 print('Shape of the weather_test_df dataset: ', weather_test_df.shape)
-
-
 
 # %% Merge the test dataset with the building_meta_df
 # target_test_df = test_df[test_df['groupNum_train']
@@ -355,5 +307,5 @@ for groupNum in X_test['groupNum_train'].unique():
 # %% Print the first 5 rows of the sample_submission_df dataset
 sample_submission_df.head()
 
-# %% Save the sample_submission_df dataset to the submission folder
-sample_submission_df.to_csv('submission/submission.csv', index=False)
+# %% save the sample_submission_df dataset to the submission.csv file
+sample_submission_df.to_csv('submission.csv', index=False)
