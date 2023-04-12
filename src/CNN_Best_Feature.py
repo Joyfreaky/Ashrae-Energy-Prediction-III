@@ -305,8 +305,24 @@ print('Shape of the weather_test_df dataset: ', weather_test_df.shape)
 #    building_meta_df, on=['building_id', 'meter', 'groupNum_train', 'square_feet'], how='left')
 # target_test_df = target_test_df.merge(
 #    weather_test_df, on=['site_id', 'timestamp'], how='left')
-X_test = test_df[feature_cols + category_cols]
+# X_test = test_df[feature_cols + category_cols]
 
+# %% Normalize the features in the test data
+print("Normalizing the features in the test data...")
+scaler = StandardScaler()
+test_df[feature_cols] = scaler.fit_transform(test_df[feature_cols])
+
+# %% Encode the categorical features using label encoding
+print("label encoding the categorical features in the test data...")
+for col in category_cols:
+    le = LabelEncoder()
+    test_df[col] = le.fit_transform(test_df[col])
+    
+# %% Scale the categorical features
+print("Scaling the categorical features in the test data...")
+scaler = StandardScaler()
+test_df[category_cols] = scaler.fit_transform(test_df[category_cols])
+ 
 # %% Read the sample_submission.csv file
 sample_submission_df = pd.read_feather(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/sample_submission.feather')
@@ -318,18 +334,15 @@ print('Shape of the sample_submission_df dataset: ', sample_submission_df.shape)
 sample_submission_df.head()
 
 # %% Print the first 5 rows of the test dataset
-X_test.head()
+test_df.head()
 
 # %% Run a loop to predict the meter_reading_log1p based on the groupNum_train
-i = 0
-for groupNum in X_test['groupNum_train'].unique():
-    # Run the loop only two times
-    i += 1
-    if i > 1:
-        break
-    # Drop the groupNum_train column
-    X_test_group = X_test[X_test['groupNum_train']
-                          == groupNum].drop('groupNum_train', axis=1).copy()
+for groupNum in test_df['groupNum_train'].unique():
+    print('Group Number: ', groupNum)
+    # Select the Features in the test dataset
+    X_test_group = test_df[test_df['groupNum_train']
+                            == groupNum][feature_cols + category_cols]
+    
     # Reshape the X_test_group dataset
     X_test_group = X_test_group.values.reshape(
         X_test_group.shape[0], X_test_group.shape[1], 1)
@@ -344,7 +357,7 @@ for groupNum in X_test['groupNum_train'].unique():
     y_pred = np.expm1(y_pred)
 
     # Save the meter_reading to the sample_submission_df by matching the index of the X_test dataset with the row_id of the sample_submission_df dataset
-    sample_submission_df.loc[X_test[X_test['groupNum_train'] == groupNum].index,
+    sample_submission_df.loc[test_df[test_df['groupNum_train'] == groupNum].index,
                              'meter_reading'] = y_pred.reshape(-1)
 
     # Delete the model
@@ -356,4 +369,6 @@ for groupNum in X_test['groupNum_train'].unique():
 sample_submission_df.head()
 
 # %% Save the sample_submission_df dataset to the submission folder
-sample_submission_df.to_csv('submission/submission.csv', index=False)
+sample_submission_df.to_csv('data/submission.csv', index=False)
+
+# %%
