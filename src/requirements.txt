@@ -7,7 +7,7 @@ holidays==0.21.13
 IProgress==0.4
 ipywidgets==8.0.6
 joblib==1.2.0
-jupyterlab-widgets==3.0.5
+jupyterlab-widgets==3.0.7
 kaggle==1.5.13
 kiwisolver==1.4.4
 korean-lunar-calendar==0.3.1
