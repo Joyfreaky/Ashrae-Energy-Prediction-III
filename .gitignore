@@ -121,6 +121,8 @@ venv.bak/
 /site
 /data
 /src/data
+/src/model
+
 
 # mypy
 .mypy_cache/
@@ -129,3 +131,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# dump file .sav files
+*.sav
+
