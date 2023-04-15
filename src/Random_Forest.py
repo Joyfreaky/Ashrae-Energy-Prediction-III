@@ -7,13 +7,10 @@ import matplotlib.pyplot as plt
 from lightgbm import LGBMRegressor
 from hyperopt import fmin, tpe, hp, Trials
 
-from scipy.signal import savgol_filter as sg
-from scipy.stats import randint as sp_randint
-from sklearn.model_selection import train_test_split
+from scipy.stats import uniform,randint as sp_randint
 from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.datasets import make_regression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import mean_absolute_error 
 from sklearn.metrics import r2_score
@@ -67,6 +64,24 @@ feature_cols = ['square_feet_np_log1p', 'year_built'] + [
     'dew_diff2', 'air_diff2'
 ]
 
+# %% Encode categorical features and use MaxMinScaler to scale the features
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+
+# Encode categorical features
+for col in category_cols:
+    le = LabelEncoder()
+    train_df[col] = le.fit_transform(train_df[col])
+
+# Scale features
+scaler = MinMaxScaler()
+train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
+
+# %% Print the head of the data with the encoded categorical features
+print(train_df[category_cols].head())
+
+# %% Print the head of the data with the scaled features
+print(train_df[feature_cols].head())
+
 
 # %% Define a function to create X and y
 def create_X_y(train_df, groupNum_train):
@@ -80,86 +95,119 @@ def create_X_y(train_df, groupNum_train):
     del target_train_df
     return X_train, y_train
 
-# %% Encode categorical features and use MaxMinScaler to scale the features
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+# %% Define a function to train the model
+def train_model(X_train, y_train, groupNum_train):
+     
+    cat_features = [X_train.columns.get_loc(
+        cat_col) for cat_col in category_cols]
+    print('cat_features', cat_features)
 
-# Encode categorical features
+    exec('models' + str(groupNum_train) + '=[]')
+
+    # Define a random forest regression model
+    rf = RandomForestRegressor()
+
+    # Define a hyperparameter space
+    param_dist = {
+    'n_estimators': sp_randint(10, 100),
+    'max_depth': [10, 20, 30, 40, None],
+    'min_samples_split': uniform(0, 1),
+    'min_samples_leaf': uniform(0, 0.5),
+    'max_features': [1.0,'sqrt', 'log2'],
+    'bootstrap': [True, False],
+    #'criterion': ['mse', 'mae']
+    }
+    
+    #kf = StratifiedKFold(n_splits=3)
+
+    # Define a RandomizedSearchCV object
+    model = RandomizedSearchCV(
+    estimator=rf,
+    param_distributions=param_dist,
+    n_iter=100,
+    scoring='neg_mean_squared_error',
+    n_jobs=-1,
+    cv=5,
+    random_state=42,
+    verbose=1)
+
+    # Fit the grid search
+    model.fit(X_train, y_train)#, cat_features=cat_features
+
+    # Print the best parameters and lowest RMSE
+    print('Best parameters found by grid search are:', model.best_params_)
+    print('Best RMSE found by grid search is:', np.sqrt(
+        -model.best_score_))
+
+    # Save the best model
+    exec('models' + str(groupNum_train) + '.append(model.best_estimator_)')
+    filename_reg='./model/rf_grid' + str(groupNum_train) +'.sav'
+    joblib.dump(model.best_estimator_, filename_reg)
+
+    return model.best_estimator_
+# %% Train the model
+for groupNum_train in train_df['groupNum_train'].unique():
+    X_train, y_train = create_X_y(train_df, groupNum_train)
+    best_rf = train_model(X_train, y_train, groupNum_train)
+    print(groupNum_train)
+
+
+# %% Delete the dataframes to free up memory
+del train_df
+gc.collect()
+
+# %% Load the test data
+test_df = pd.read_pickle('./data/test_df.pkl')
+
+# %% Fill NaN values with 0
+test_df.fillna(0, inplace=True)
+
+# %% Encode categorical features and use MaxMinScaler to scale the features
 for col in category_cols:
     le = LabelEncoder()
-    train_df[col] = le.fit_transform(train_df[col])
+    test_df[col] = le.fit_transform(test_df[col])
 
-# Scale features
-scaler = MinMaxScaler()
-train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
+test_df[feature_cols] = scaler.transform(test_df[feature_cols])
+
+# %% Print the head of the data with the encoded categorical features
+print(test_df[category_cols].head())
+
+# %% Print the head of the data with the scaled features
+print(test_df[feature_cols].head())
 
 
 
-
-# %% Train the model
-# Define a random forest regression model
-rf = RandomForestRegressor()
-
-# Define a hyperparameter space
-param_grid = {
-    'n_estimators': [1000],
-    'max_depth': [7,10],
-    'min_samples_split': [2,4],
-    'min_samples_leaf': [2,4]
-   
-}
-folds = 3
-kf = StratifiedKFold(n_splits=folds)
-
-print(X_train['groupNum_train'].unique())
-print(X_test['groupNum_train'].unique())
-
-for groupNum_train in X_train['groupNum_train'].unique():
-        target_train_df = train_df[train_df['groupNum_train']
-                                == groupNum_train].copy()
-
-        X_train = target_train_df[feature_cols + category_cols]
-        y_train = target_train_df['meter_reading_log1p'].values
-        del target_train_df
-        
-        y_valid_pred_total = np.zeros(X_train.shape[0])
-
-        gc.collect()
-        print('groupNum_train', groupNum_train, X_train.shape)
-
-        cat_features = [X_train.columns.get_loc(
-            cat_col) for cat_col in category_cols]
-        print('cat_features', cat_features)
-
-        exec('models' + str(groupNum_train) + '=[]')
-
-        
-        best_rf = RandomForestRegressor(max_depth=10, random_state=0,n_estimators=1000,min_samples_split=2,min_samples_leaf=2,n_jobs=8)
-        best_rf.fit(X_train, y_train)
-        print('fit end')
-        filename_reg='./model/rf_grid' + str(groupNum_train) +'.sav'
-        joblib.dump(best_rf,filename_reg)
-      
-           
-        del X_train, y_train
-        gc.collect()
-
-        print('-------------------------------------------------------------')
 # %% Test the model
-for groupNum_train in X_test['groupNum_train'].unique():
-    target_test_df = train_df[train_df['groupNum_train']
-                             == groupNum_train].copy()
+def test_model(test_df, groupNum_test):
+    target_test_df = test_df[test_df['groupNum_test']
+                             == groupNum_test].copy()
 
     X_test = target_test_df[feature_cols + category_cols]
-    y_test = target_test_df['meter_reading_log1p']
-    best_rf=joblib.load('./model/rf_grid' + str(groupNum_train) +'.sav')
+    
+
+    del target_test_df
+    return X_test
+
+# %% Load the submission file
+submission_df = pd.read_csv('./data/sample_submission.csv')
+
+# %% Make predictions
+for groupNum_test in test_df['groupNum_test'].unique():
+    X_test = test_model(test_df, groupNum_test)
+    exec('best_rf = models' + str(groupNum_test) + '[0]')
     y_pred = best_rf.predict(X_test)
-   
-    #Call the functions
-    mae = mean_absolute_error(y_test,y_pred)
-    r2 = r2_score(y_test,y_pred)
-    mse = mean_squared_error(y_test, y_pred)
-    print(groupNum_train)
-    print("Grid Search Test MSE:", mse)
-    print("Grid Search Test MAE:", mae)
-    print("Grid Search Test r2:", r2)
+    submission_df.loc[test_df['groupNum_test']
+                      == groupNum_test, 'meter_reading'] = np.expm1(y_pred)
+
+# %% Save the predictions to a csv file
+submission_df.to_csv('./data/submission_RF.csv', index=False)
+
+# %% Delete the dataframes to free up memory
+del test_df
+del submission_df
+gc.collect()
+
+
+
+
 
