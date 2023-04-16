@@ -14,7 +14,7 @@ from tensorflow.keras.utils import plot_model # type: ignore
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 import gc
 import warnings
@@ -120,20 +120,20 @@ del X_train_subset
 gc.collect()
 
 # %% Normalize the features
-print("Normalizing the features...")
-scaler = StandardScaler()
-X_train[feature_cols] = scaler.fit_transform(X_train[feature_cols])
-X_val[feature_cols] = scaler.transform(X_val[feature_cols])
+#print("Normalizing the features...")
+#scaler = StandardScaler()
+#X_train[feature_cols] = scaler.fit_transform(X_train[feature_cols])
+#X_val[feature_cols] = scaler.transform(X_val[feature_cols])
 
-# %% Encode the categorical features using label encoding
-print("label encoding the categorical features...")
-for col in category_cols:
-    le = LabelEncoder()
-    X_train[col] = le.fit_transform(X_train[col])
-    X_val[col] = le.transform(X_val[col])
+# %% Encode the categorical features using label encodin
+#print("label encoding the categorical features...")
+#for col in category_cols:
+#    le = LabelEncoder()
+#    X_train[col] = le.fit_transform(X_train[col])
+#    X_val[col] = le.transform(X_val[col])
 
 # %% Print the dtype of the categorical features after label encoding
-print('Dtype of the categorical features after label encoding: ', X_train[category_cols].dtypes)
+#print('Dtype of the categorical features after label encoding: ', X_train[category_cols].dtypes)
 
 # # %% One-hot encode the categorical features
 # print("One-hot encoding the categorical features...")
@@ -141,12 +141,27 @@ print('Dtype of the categorical features after label encoding: ', X_train[catego
 # X_val = pd.get_dummies(X_val, columns=category_cols)
 
 # %% Scale the categorical features
-print("Scaling the categorical features...")
-scaler = StandardScaler()
-X_train[category_cols] = scaler.fit_transform(X_train[category_cols])
-X_val[category_cols] = scaler.transform(X_val[category_cols])
+#print("Scaling the categorical features...")
+#scaler = StandardScaler()
+#X_train[category_cols] = scaler.fit_transform(X_train[category_cols])
+#X_val[category_cols] = scaler.transform(X_val[category_cols])
 
+# %% Encode categorical features and use MaxMinScaler to scale the features
 
+# Encode categorical features
+for col in category_cols:
+    le = LabelEncoder()
+    train_df[col] = le.fit_transform(train_df[col])
+
+# Scale features
+scaler = MinMaxScaler()
+train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
+
+# %% Print the head of the data with the encoded categorical features
+print(train_df[category_cols].head())
+
+# %% Print the head of the data with the scaled features
+print(train_df[feature_cols].head())
 
 # %% Print the shape of the dataset
 print('Shape of the training dataset: ', X_train[feature_cols + category_cols].shape)
@@ -290,7 +305,15 @@ building_meta_df = pd.read_pickle(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/building_meta_df.pkl')
 weather_test_df = pd.read_pickle(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/weather_test_df.pkl')
-
+#%%
+print(weather_test_df.columns)
+# %% Merge the test data with the building metadata and weather test data
+target_test_df = test_df.copy()
+target_test_df = target_test_df.merge(
+        building_meta_df, on=['building_id', 'meter', 'groupNum_train', 'square_feet'], how='left')
+target_test_df = target_test_df.merge(
+    weather_test_df, on=['site_id', 'timestamp'], how='left')
+X_test = target_test_df[feature_cols + category_cols]
 # %% print the shape of the dataset
 print('Shape of the test dataset: ', test_df.shape)
 print('Shape of the building_meta_df dataset: ', building_meta_df.shape)
@@ -308,21 +331,33 @@ print('Shape of the weather_test_df dataset: ', weather_test_df.shape)
 # X_test = test_df[feature_cols + category_cols]
 
 # %% Normalize the features in the test data
-print("Normalizing the features in the test data...")
-scaler = StandardScaler()
-test_df[feature_cols] = scaler.fit_transform(test_df[feature_cols])
+#print("Normalizing the features in the test data...")
+#scaler = StandardScaler()
+#test_df[feature_cols] = scaler.fit_transform(test_df[feature_cols])
 
 # %% Encode the categorical features using label encoding
-print("label encoding the categorical features in the test data...")
-for col in category_cols:
-    le = LabelEncoder()
-    test_df[col] = le.fit_transform(test_df[col])
+#print("label encoding the categorical features in the test data...")
+#for col in category_cols:
+#    le = LabelEncoder()
+#    test_df[col] = le.fit_transform(test_df[col])
     
 # %% Scale the categorical features
-print("Scaling the categorical features in the test data...")
-scaler = StandardScaler()
-test_df[category_cols] = scaler.fit_transform(test_df[category_cols])
- 
+#print("Scaling the categorical features in the test data...")
+#scaler = StandardScaler()
+#test_df[category_cols] = scaler.fit_transform(test_df[category_cols])
+ # %% Encode categorical features and use MaxMinScaler to scale the features
+for col in category_cols:
+    le = LabelEncoder()
+    X_test[col] = le.fit_transform(X_test[col])
+
+scaler = MinMaxScaler()
+X_test[feature_cols] = scaler.transform(X_test[feature_cols])
+
+# %% Print the head of the data with the encoded categorical features
+print(test_df[category_cols].head())
+
+# %% Print the head of the data with the scaled features
+print(test_df[feature_cols].head())
 # %% Read the sample_submission.csv file
 sample_submission_df = pd.read_feather(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/sample_submission.feather')
