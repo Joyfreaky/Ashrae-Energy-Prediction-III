@@ -119,49 +119,49 @@ plt.show()
 del X_train_subset
 gc.collect()
 
-# %% Normalize the features
-#print("Normalizing the features...")
-#scaler = StandardScaler()
-#X_train[feature_cols] = scaler.fit_transform(X_train[feature_cols])
-#X_val[feature_cols] = scaler.transform(X_val[feature_cols])
+#%% Normalize the features
+print("Normalizing the features...")
+scaler = StandardScaler()
+X_train[feature_cols] = scaler.fit_transform(X_train[feature_cols])
+X_val[feature_cols] = scaler.transform(X_val[feature_cols])
 
-# %% Encode the categorical features using label encodin
-#print("label encoding the categorical features...")
-#for col in category_cols:
-#    le = LabelEncoder()
-#    X_train[col] = le.fit_transform(X_train[col])
-#    X_val[col] = le.transform(X_val[col])
+#%% Encode the categorical features using label encodin
+print("label encoding the categorical features...")
+for col in category_cols:
+   le = LabelEncoder()
+   X_train[col] = le.fit_transform(X_train[col])
+   X_val[col] = le.transform(X_val[col])
 
-# %% Print the dtype of the categorical features after label encoding
-#print('Dtype of the categorical features after label encoding: ', X_train[category_cols].dtypes)
+#%% Print the dtype of the categorical features after label encoding
+print('Dtype of the categorical features after label encoding: ', X_train[category_cols].dtypes)
 
 # # %% One-hot encode the categorical features
 # print("One-hot encoding the categorical features...")
 # X_train = pd.get_dummies(X_train, columns=category_cols)
 # X_val = pd.get_dummies(X_val, columns=category_cols)
 
-# %% Scale the categorical features
-#print("Scaling the categorical features...")
-#scaler = StandardScaler()
-#X_train[category_cols] = scaler.fit_transform(X_train[category_cols])
-#X_val[category_cols] = scaler.transform(X_val[category_cols])
+#%% Scale the categorical features
+print("Scaling the categorical features...")
+scaler = StandardScaler()
+X_train[category_cols] = scaler.fit_transform(X_train[category_cols])
+X_val[category_cols] = scaler.transform(X_val[category_cols])
 
-# %% Encode categorical features and use MaxMinScaler to scale the features
+# # %% Encode categorical features and use MaxMinScaler to scale the features
 
-# Encode categorical features
-for col in category_cols:
-    le = LabelEncoder()
-    train_df[col] = le.fit_transform(train_df[col])
+# # Encode categorical features
+# for col in category_cols:
+#     le = LabelEncoder()
+#     train_df[col] = le.fit_transform(train_df[col])
 
-# Scale features
-scaler = MinMaxScaler()
-train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
+# # Scale features
+# scaler = MinMaxScaler()
+# train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
 
-# %% Print the head of the data with the encoded categorical features
-print(train_df[category_cols].head())
+# # %% Print the head of the data with the encoded categorical features
+# print(train_df[category_cols].head())
 
-# %% Print the head of the data with the scaled features
-print(train_df[feature_cols].head())
+# # %% Print the head of the data with the scaled features
+# print(train_df[feature_cols].head())
 
 # %% Print the shape of the dataset
 print('Shape of the training dataset: ', X_train[feature_cols + category_cols].shape)
@@ -250,7 +250,7 @@ for groupNum in X_train['groupNum_train'].unique():
         'model.h5', monitor='val_loss', save_best_only=True, mode='min')
 
     #  Train the model
-    history = model.fit(X_train_group, y_train_group, epochs=100, batch_size=32, validation_data=(
+    history = model.fit(X_train_group, y_train_group, epochs=100, batch_size=512, validation_data=(
         X_val_group, y_val_group), callbacks=[early_stopping, model_checkpoint])
     
     #  Plot the training and validation loss
@@ -300,58 +300,68 @@ for groupNum in X_train['groupNum_train'].unique():
 
  # %% Load the test dataset
 test_df = pd.read_pickle(
-    '/workspace/Ashrae-Energy-Prediction-III/src/data/train_df.pkl')
+    '/workspace/Ashrae-Energy-Prediction-III/src/data/test_df.pkl')
 building_meta_df = pd.read_pickle(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/building_meta_df.pkl')
 weather_test_df = pd.read_pickle(
     '/workspace/Ashrae-Energy-Prediction-III/src/data/weather_test_df.pkl')
 #%%
 print(weather_test_df.columns)
+
+# %% print the shape of the dataset
+print('Shape of the test dataset: ', test_df.shape)
+print('Shape of the building_meta_df dataset: ', building_meta_df.shape)
+print('Shape of the weather_test_df dataset: ', weather_test_df.shape)
+
 # %% Merge the test data with the building metadata and weather test data
 target_test_df = test_df.copy()
 target_test_df = target_test_df.merge(
         building_meta_df, on=['building_id', 'meter', 'groupNum_train', 'square_feet'], how='left')
 target_test_df = target_test_df.merge(
     weather_test_df, on=['site_id', 'timestamp'], how='left')
-X_test = target_test_df[feature_cols + category_cols]
-# %% print the shape of the dataset
-print('Shape of the test dataset: ', test_df.shape)
-print('Shape of the building_meta_df dataset: ', building_meta_df.shape)
-print('Shape of the weather_test_df dataset: ', weather_test_df.shape)
+test_df = target_test_df[feature_cols + category_cols]
+del target_test_df, building_meta_df, weather_test_df
+gc.collect()
+
+# %% Print the shape of the Test dataset after merging 
+print('Shape of the test dataset after merging: ', test_df.shape)
 
 
+# %% Print the columns of the test dataset
+print('Columns of the test dataset: ', test_df.columns)
 
-# %% Merge the test dataset with the building_meta_df
+# #%% Merge the test dataset with the building_meta_df
 # target_test_df = test_df[test_df['groupNum_train']
 #                             == groupNum_train].copy()
 # target_test_df = target_test_df.merge(
 #    building_meta_df, on=['building_id', 'meter', 'groupNum_train', 'square_feet'], how='left')
 # target_test_df = target_test_df.merge(
 #    weather_test_df, on=['site_id', 'timestamp'], how='left')
-# X_test = test_df[feature_cols + category_cols]
+# X_test = target_test_df[feature_cols + category_cols]
 
 # %% Normalize the features in the test data
-#print("Normalizing the features in the test data...")
-#scaler = StandardScaler()
-#test_df[feature_cols] = scaler.fit_transform(test_df[feature_cols])
+print("Normalizing the features in the test data...")
+scaler = StandardScaler()
+test_df[feature_cols] = scaler.fit_transform(test_df[feature_cols])
 
 # %% Encode the categorical features using label encoding
-#print("label encoding the categorical features in the test data...")
-#for col in category_cols:
-#    le = LabelEncoder()
-#    test_df[col] = le.fit_transform(test_df[col])
+print("label encoding the categorical features in the test data...")
+for col in category_cols:
+   le = LabelEncoder()
+   test_df[col] = le.fit_transform(test_df[col])
     
 # %% Scale the categorical features
-#print("Scaling the categorical features in the test data...")
-#scaler = StandardScaler()
-#test_df[category_cols] = scaler.fit_transform(test_df[category_cols])
- # %% Encode categorical features and use MaxMinScaler to scale the features
-for col in category_cols:
-    le = LabelEncoder()
-    X_test[col] = le.fit_transform(X_test[col])
+print("Scaling the categorical features in the test data...")
+scaler = StandardScaler()
+test_df[category_cols] = scaler.fit_transform(test_df[category_cols])
 
-scaler = MinMaxScaler()
-X_test[feature_cols] = scaler.transform(X_test[feature_cols])
+# # %% Encode categorical features and use MaxMinScaler to scale the features
+# for col in category_cols:
+#     le = LabelEncoder()
+#     test_df[col] = le.fit_transform(test_df[col])
+
+# scaler = MinMaxScaler()
+# test_df[feature_cols] = scaler.transform(test_df[feature_cols])
 
 # %% Print the head of the data with the encoded categorical features
 print(test_df[category_cols].head())
@@ -371,7 +381,22 @@ sample_submission_df.head()
 # %% Print the first 5 rows of the test dataset
 test_df.head()
 
+#%% Read the groupNum_train from the test dataset saved in the pickle file
+test_df_GroupNumTrain = pd.read_pickle(
+    '/workspace/Ashrae-Energy-Prediction-III/src/data/test_df.pkl')
+test_df_GroupNumTrain = test_df_GroupNumTrain['groupNum_train']
+
+# Adding the groupNum_train to the test_df
+test_df['groupNum_train'] = test_df_GroupNumTrain
+
+del test_df_GroupNumTrain
+gc.collect()
+
+#print the head of the test_df
+print(test_df.head())
+
 # %% Run a loop to predict the meter_reading_log1p based on the groupNum_train
+
 for groupNum in test_df['groupNum_train'].unique():
     print('Group Number: ', groupNum)
     # Select the Features in the test dataset
@@ -400,10 +425,22 @@ for groupNum in test_df['groupNum_train'].unique():
     gc.collect()
 
 
+
+
+
+
 # %% Print the first 5 rows of the sample_submission_df dataset
 sample_submission_df.head()
 
-# %% Save the sample_submission_df dataset to the submission folder
-sample_submission_df.to_csv('data/submission.csv', index=False)
+# %% Print the unique values of the meter_reading the sample_submission_df dataset
+print('Unique values of the meter_reading in the sample_submission_df dataset: ', sample_submission_df['meter_reading'].unique())
 
-# %%
+# %% Save the sample_submission_df dataset to the submission folder
+sample_submission_df.to_csv('/workspace/Ashrae-Energy-Prediction-III/src/data/submission_final_CNN.csv', index=False)
+
+# %% Push the CNN_Best_Feature.py file to the github repository remotes/origin/17-feature-addition-cnn using git
+# !git add CNN_Best_Feature.py
+# !git commit -m "Added the CNN_Best_Feature.py file"
+# !git push origin 17-feature-addition-cnn 
+# !git status
+#  
