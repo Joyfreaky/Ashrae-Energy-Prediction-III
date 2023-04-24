@@ -3,7 +3,7 @@ convertdate==2.4.0
 cycler==0.11.0
 fonttools==4.39.3
 hijri-converter==2.2.4
-holidays==0.21.13
+holidays==0.23
 IProgress==0.4
 ipywidgets==8.0.6
 joblib==1.2.0
@@ -13,9 +13,9 @@ kiwisolver==1.4.4
 korean-lunar-calendar==0.3.1
 lightgbm==3.3.5
 matplotlib==3.7.1
-numpy==1.24.2
-pandas==1.5.3
-Pillow==9.4.0
+numpy==1.24.3
+pandas==2.0.0
+Pillow==9.5.0
 pyarrow==11.0.0
 PyMeeus==0.5.12
 pyparsing==3.0.9
