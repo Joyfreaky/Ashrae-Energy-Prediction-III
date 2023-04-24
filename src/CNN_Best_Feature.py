@@ -441,6 +441,9 @@ sample_submission_df.to_csv('/workspace/Ashrae-Energy-Prediction-III/src/data/su
 # %% Push the CNN_Best_Feature.py file to the github repository remotes/origin/17-feature-addition-cnn using git
 # !git add CNN_Best_Feature.py
 # !git commit -m "Added the CNN_Best_Feature.py file"
+## Set the upstream to the 17-feature-addition-cnn branch
+# !git push --set-upstream origin 17-feature-addition-cnn
 # !git push origin 17-feature-addition-cnn 
 # !git status
 #  
+
