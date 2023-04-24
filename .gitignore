@@ -130,5 +130,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# neural network models
-*.h5
+
