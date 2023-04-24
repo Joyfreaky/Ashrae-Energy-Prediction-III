@@ -33,8 +33,8 @@ black_day = 10
 outlier = True
 rescale = True
 
-debug = True
-Train = False
+debug = False
+Train = True
 num_rounds = 200
 
 clip0 = True
